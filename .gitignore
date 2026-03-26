@@ -1,0 +1,23 @@
+# Build output
+build/
+*.dylib
+*.so
+*.dll
+*.a
+*.o
+*.obj
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile.cmake
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~

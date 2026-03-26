@@ -1,0 +1,20 @@
+local yoga_base = "https://github.com/labolado/solar2d-plugin-yoga/releases/download/v1/"
+
+settings = {
+    orientation = {
+        default = "portrait",
+        supported = { "portrait" },
+    },
+    plugins = {
+        ["plugin.yoga"] = {
+            publisherId = "com.labolado",
+            supportedPlatforms = {
+                ["mac-sim"]    = { url = yoga_base .. "plugin.yoga-mac-sim.tgz" },
+                android        = { url = yoga_base .. "plugin.yoga-android.tgz" },
+                iphone         = { url = yoga_base .. "plugin.yoga-iphone.tgz" },
+                ["iphone-sim"] = { url = yoga_base .. "plugin.yoga-iphone-sim.tgz" },
+                ["win32-sim"]  = { url = yoga_base .. "plugin.yoga-win32-sim.tgz" },
+            },
+        },
+    },
+}

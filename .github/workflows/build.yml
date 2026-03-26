@@ -1,0 +1,402 @@
+name: Build All Platforms
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  pull_request:
+    branches: [master]
+
+jobs:
+  # ── Compute version string ─────────────────────────────────
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      plugin_version: ${{ steps.ver.outputs.plugin_version }}
+    steps:
+      - id: ver
+        run: |
+          REF="${GITHUB_REF}"
+          if [[ "$REF" == refs/tags/v* ]]; then
+            VER="${REF#refs/tags/}"
+          else
+            VER="dev-${GITHUB_RUN_NUMBER}"
+          fi
+          echo "plugin_version=${VER}" >> $GITHUB_OUTPUT
+          echo "Plugin version: ${VER}"
+
+  # ── macOS Simulator (dylib) ────────────────────────────────
+  build-mac-sim:
+    needs: version
+    runs-on: macos-latest
+    env:
+      PLUGIN_VERSION: ${{ needs.version.outputs.plugin_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download Lua 5.1 headers
+        run: |
+          curl -fL -o /tmp/lua-5.1.5.tar.gz https://www.lua.org/ftp/lua-5.1.5.tar.gz
+          tar xzf /tmp/lua-5.1.5.tar.gz -C /tmp
+          echo "LUA_INCLUDE=/tmp/lua-5.1.5/src" >> $GITHUB_ENV
+
+      - name: CMake configure
+        run: |
+          cmake -B build \
+            -DSOLAR2D_PLUGIN=ON \
+            -DLUA_INCLUDE_DIR="$LUA_INCLUDE" \
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: CMake build
+        run: cmake --build build --config Release -j4
+
+      - name: Package mac-sim tgz
+        run: |
+          STAGING=$(mktemp -d)
+          cp build/plugin_yoga.dylib "$STAGING/"
+          cat > "$STAGING/metadata.lua" << 'METALUA'
+          local metadata =
+          {
+            plugin =
+            {
+              format = 'sharedLibrary',
+            },
+          }
+          return metadata
+          METALUA
+          tar czf "build/plugin.yoga-mac-sim.tgz" -C "$STAGING" .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac-sim
+          path: build/*.tgz
+
+  # ── Android (arm64-v8a + armeabi-v7a) ─────────────────────
+  build-android:
+    needs: version
+    runs-on: ubuntu-latest
+    env:
+      PLUGIN_VERSION: ${{ needs.version.outputs.plugin_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download Lua 5.1 headers
+        run: |
+          curl -fL -o /tmp/lua-5.1.5.tar.gz https://www.lua.org/ftp/lua-5.1.5.tar.gz
+          tar xzf /tmp/lua-5.1.5.tar.gz -C /tmp
+          echo "LUA_INCLUDE=/tmp/lua-5.1.5/src" >> $GITHUB_ENV
+
+      - name: Build for Android
+        run: |
+          NDK=$ANDROID_NDK_HOME
+          OUT_DIR="$PWD/build/android"
+
+          for ABI in arm64-v8a armeabi-v7a; do
+            echo "=== Building $ABI ==="
+            cmake -B "build-$ABI" \
+              -DSOLAR2D_PLUGIN=ON \
+              -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+              -DANDROID_ABI="$ABI" \
+              -DANDROID_PLATFORM=android-24 \
+              -DLUA_INCLUDE_DIR="$LUA_INCLUDE" \
+              -DCMAKE_BUILD_TYPE=Release
+
+            cmake --build "build-$ABI" -j4
+
+            mkdir -p "$OUT_DIR/$ABI"
+            # Rename to use dots: libplugin.yoga.so (Android Lua require convention)
+            cp "build-$ABI/libplugin.yoga.so" "$OUT_DIR/$ABI/libplugin.yoga.so"
+            ls -lh "$OUT_DIR/$ABI/"
+          done
+
+      - name: Package android tgz
+        run: |
+          STAGING=$(mktemp -d)
+          mkdir -p "$STAGING/jniLibs/arm64-v8a" "$STAGING/jniLibs/armeabi-v7a"
+          cp build/android/arm64-v8a/libplugin.yoga.so "$STAGING/jniLibs/arm64-v8a/"
+          cp build/android/armeabi-v7a/libplugin.yoga.so "$STAGING/jniLibs/armeabi-v7a/"
+          cat > "$STAGING/metadata.lua" << 'METALUA'
+          local metadata =
+          {
+            plugin =
+            {
+              format = 'sharedLibrary',
+            },
+          }
+          return metadata
+          METALUA
+          tar czf "build/plugin.yoga-android.tgz" -C "$STAGING" .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: build/*.tgz
+
+  # ── iOS device (arm64 static lib) ─────────────────────────
+  build-iphone:
+    needs: version
+    runs-on: macos-latest
+    env:
+      PLUGIN_VERSION: ${{ needs.version.outputs.plugin_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download Lua 5.1 headers
+        run: |
+          curl -fL -o /tmp/lua-5.1.5.tar.gz https://www.lua.org/ftp/lua-5.1.5.tar.gz
+          tar xzf /tmp/lua-5.1.5.tar.gz -C /tmp
+          echo "LUA_INCLUDE=/tmp/lua-5.1.5/src" >> $GITHUB_ENV
+
+      - name: Build yogacore static lib (arm64)
+        run: |
+          cmake -B build-yoga-ios \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-yoga-ios --target yogacore -j4
+
+      - name: Build plugin static lib (arm64)
+        run: |
+          mkdir -p build/iphone
+          IOS_SDK=$(xcrun -sdk iphoneos --show-sdk-path)
+
+          # Compile plugin C files
+          for f in src/*.c; do
+            BASENAME=$(basename "$f" .c)
+            xcrun -sdk iphoneos clang -c \
+              -arch arm64 \
+              -isysroot "$IOS_SDK" \
+              -miphoneos-version-min=13.0 \
+              -I include -I yoga -I "$LUA_INCLUDE" \
+              -O2 -Wall \
+              -o "build/iphone/${BASENAME}.o" \
+              "$f"
+          done
+
+          # Combine plugin objects + yogacore into single static lib
+          libtool -static -o build/iphone/libplugin_yoga.a \
+            build/iphone/*.o \
+            build-yoga-ios/libyogacore.a
+          rm -f build/iphone/*.o
+          ls -lh build/iphone/libplugin_yoga.a
+
+      - name: Package iphone tgz
+        run: |
+          STAGING=$(mktemp -d)
+          cp build/iphone/libplugin_yoga.a "$STAGING/"
+          cat > "$STAGING/metadata.lua" << 'METALUA'
+          local metadata =
+          {
+            plugin =
+            {
+              format = 'staticLibrary',
+              staticLibs = { 'plugin_yoga' },
+              frameworks = {},
+              frameworksOptional = {},
+            },
+          }
+          return metadata
+          METALUA
+          tar czf "build/plugin.yoga-iphone.tgz" -C "$STAGING" .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iphone
+          path: build/*.tgz
+
+  # ── iOS Simulator (arm64 + x86_64 static lib) ─────────────
+  build-iphone-sim:
+    needs: version
+    runs-on: macos-latest
+    env:
+      PLUGIN_VERSION: ${{ needs.version.outputs.plugin_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download Lua 5.1 headers
+        run: |
+          curl -fL -o /tmp/lua-5.1.5.tar.gz https://www.lua.org/ftp/lua-5.1.5.tar.gz
+          tar xzf /tmp/lua-5.1.5.tar.gz -C /tmp
+          echo "LUA_INCLUDE=/tmp/lua-5.1.5/src" >> $GITHUB_ENV
+
+      - name: Build yogacore static lib (arm64 + x86_64)
+        run: |
+          for ARCH in arm64 x86_64; do
+            cmake -B "build-yoga-sim-$ARCH" \
+              -DCMAKE_SYSTEM_NAME=iOS \
+              -DCMAKE_OSX_ARCHITECTURES="$ARCH" \
+              -DCMAKE_OSX_DEPLOYMENT_TARGET=13.0 \
+              -DCMAKE_OSX_SYSROOT=iphonesimulator \
+              -DCMAKE_BUILD_TYPE=Release
+            cmake --build "build-yoga-sim-$ARCH" --target yogacore -j4
+          done
+          # Create universal yogacore
+          lipo -create \
+            build-yoga-sim-arm64/libyogacore.a \
+            build-yoga-sim-x86_64/libyogacore.a \
+            -output build-yoga-sim-universal-yogacore.a
+
+      - name: Build plugin static lib (arm64 + x86_64)
+        run: |
+          mkdir -p build/iphone-sim
+          SIM_SDK=$(xcrun -sdk iphonesimulator --show-sdk-path)
+
+          for ARCH in arm64 x86_64; do
+            mkdir -p "build/iphone-sim/$ARCH"
+            for f in src/*.c; do
+              BASENAME=$(basename "$f" .c)
+              xcrun -sdk iphonesimulator clang -c \
+                -arch "$ARCH" \
+                -isysroot "$SIM_SDK" \
+                -mios-simulator-version-min=13.0 \
+                -I include -I yoga -I "$LUA_INCLUDE" \
+                -O2 -Wall \
+                -o "build/iphone-sim/$ARCH/${BASENAME}.o" \
+                "$f"
+            done
+            # Per-arch static lib from plugin objects
+            ar rcs "build/iphone-sim/libplugin_yoga_${ARCH}.a" build/iphone-sim/$ARCH/*.o
+          done
+
+          # Create universal plugin lib
+          lipo -create \
+            build/iphone-sim/libplugin_yoga_arm64.a \
+            build/iphone-sim/libplugin_yoga_x86_64.a \
+            -output build/iphone-sim/libplugin_yoga_objs.a
+
+          # Merge plugin objects + yogacore into single static lib
+          libtool -static -o build/iphone-sim/libplugin_yoga.a \
+            build/iphone-sim/libplugin_yoga_objs.a \
+            build-yoga-sim-universal-yogacore.a
+
+          # Clean up intermediates
+          rm -rf build/iphone-sim/arm64 build/iphone-sim/x86_64
+          rm -f build/iphone-sim/libplugin_yoga_arm64.a build/iphone-sim/libplugin_yoga_x86_64.a build/iphone-sim/libplugin_yoga_objs.a
+          ls -lh build/iphone-sim/libplugin_yoga.a
+
+      - name: Package iphone-sim tgz
+        run: |
+          STAGING=$(mktemp -d)
+          cp build/iphone-sim/libplugin_yoga.a "$STAGING/"
+          cat > "$STAGING/metadata.lua" << 'METALUA'
+          local metadata =
+          {
+            plugin =
+            {
+              format = 'staticLibrary',
+              staticLibs = { 'plugin_yoga' },
+              frameworks = {},
+              frameworksOptional = {},
+            },
+          }
+          return metadata
+          METALUA
+          tar czf "build/plugin.yoga-iphone-sim.tgz" -C "$STAGING" .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iphone-sim
+          path: build/*.tgz
+
+  # ── Windows (x64 DLL) ─────────────────────────────────────
+  build-win32-sim:
+    needs: version
+    runs-on: windows-latest
+    env:
+      PLUGIN_VERSION: ${{ needs.version.outputs.plugin_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download Lua 5.1 headers
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://www.lua.org/ftp/lua-5.1.5.tar.gz" -OutFile "$env:TEMP\lua.tar.gz"
+          tar xzf "$env:TEMP\lua.tar.gz" -C "$env:TEMP"
+          echo "LUA_INCLUDE=$env:TEMP\lua-5.1.5\src" >> $env:GITHUB_ENV
+
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build Lua 5.1 lib
+        shell: cmd
+        run: |
+          cd /d "%LUA_INCLUDE%"
+          cl /O2 /c /W3 /DLUA_BUILD_AS_DLL ^
+            lapi.c lcode.c ldebug.c ldo.c ldump.c lfunc.c lgc.c llex.c ^
+            lmem.c lobject.c lopcodes.c lparser.c lstate.c lstring.c ^
+            ltable.c ltm.c lundump.c lvm.c lzio.c lauxlib.c lbaselib.c ^
+            ldblib.c liolib.c lmathlib.c loslib.c ltablib.c lstrlib.c ^
+            loadlib.c linit.c
+          lib /OUT:lua51.lib *.obj
+          del *.obj
+          echo Built lua51.lib
+
+      - name: CMake configure
+        shell: cmd
+        run: |
+          cmake -B build -G "NMake Makefiles" ^
+            -DLUA_INCLUDE_DIR="%LUA_INCLUDE%" ^
+            -DCMAKE_LIBRARY_PATH="%LUA_INCLUDE%" ^
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: CMake build
+        shell: cmd
+        run: cmake --build build
+
+      - name: Package win32-sim tgz
+        shell: bash
+        run: |
+          STAGING=$(mktemp -d)
+          cp build/plugin_yoga.dll "$STAGING/"
+          cat > "$STAGING/metadata.lua" << 'METALUA'
+          local metadata =
+          {
+            plugin =
+            {
+              format = 'sharedLibrary',
+            },
+          }
+          return metadata
+          METALUA
+          tar czf "build/plugin.yoga-win32-sim.tgz" -C "$STAGING" .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: win32-sim
+          path: build/*.tgz
+
+  # ── Release (on tag push v*) ───────────────────────────────
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [version, build-mac-sim, build-android, build-iphone, build-iphone-sim, build-win32-sim]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Collect tgz files
+        run: |
+          mkdir -p release
+          find artifacts -name '*.tgz' -exec cp {} release/ \;
+          echo "=== Release files ==="
+          ls -lh release/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Release ${{ github.ref_name }}"
+          generate_release_notes: true
+          files: release/*.tgz
