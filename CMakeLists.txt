@@ -76,8 +76,8 @@ if(SOLAR2D_PLUGIN)
         set_target_properties(plugin_yoga PROPERTIES
             PREFIX "lib"
             OUTPUT_NAME "plugin.yoga"
-            LINK_FLAGS "-Wl,--unresolved-symbols=ignore-all"
         )
+        target_link_options(plugin_yoga PRIVATE -Wl,--warn-unresolved-symbols)
     endif()
 else()
     target_link_libraries(plugin_yoga PRIVATE yogacore)
@@ -101,7 +101,7 @@ else()
         set_target_properties(plugin_yoga PROPERTIES
             PREFIX "lib"
             OUTPUT_NAME "plugin.yoga"
-            LINK_FLAGS "-Wl,--unresolved-symbols=ignore-all"
         )
+        target_link_options(plugin_yoga PRIVATE -Wl,--warn-unresolved-symbols)
     endif()
 endif()
