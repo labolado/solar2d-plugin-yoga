@@ -90,6 +90,30 @@ jobs:
           tar xzf /tmp/lua-5.1.5.tar.gz -C /tmp
           echo "LUA_INCLUDE=/tmp/lua-5.1.5/src" >> $GITHUB_ENV
 
+      - name: Build Lua 5.1 stub libraries for Android linking
+        run: |
+          NDK=$ANDROID_NDK_HOME
+          TOOLCHAIN="$NDK/toolchains/llvm/prebuilt/linux-x86_64"
+
+          declare -A ABI_CC=(
+            ["arm64-v8a"]="aarch64-linux-android24-clang"
+            ["armeabi-v7a"]="armv7a-linux-androideabi24-clang"
+          )
+
+          for ABI in arm64-v8a armeabi-v7a; do
+            CC="$TOOLCHAIN/bin/${ABI_CC[$ABI]}"
+            mkdir -p "/tmp/lua-stub/$ABI"
+            cd "$LUA_INCLUDE"
+            $CC -shared -fPIC -o "/tmp/lua-stub/$ABI/liblua.so" \
+              -DLUA_USE_POSIX -DLUA_USE_DLOPEN \
+              lapi.c lcode.c ldebug.c ldo.c ldump.c lfunc.c lgc.c llex.c \
+              lmem.c lobject.c lopcodes.c lparser.c lstate.c lstring.c \
+              ltable.c ltm.c lundump.c lvm.c lzio.c lauxlib.c lbaselib.c \
+              ldblib.c liolib.c lmathlib.c loslib.c ltablib.c lstrlib.c \
+              loadlib.c linit.c
+            echo "Built liblua.so stub for $ABI"
+          done
+
       - name: Build for Android
         run: |
           NDK=$ANDROID_NDK_HOME
@@ -103,13 +127,12 @@ jobs:
               -DANDROID_ABI="$ABI" \
               -DANDROID_PLATFORM=android-24 \
               -DLUA_INCLUDE_DIR="$LUA_INCLUDE" \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_SHARED_LINKER_FLAGS="-Wl,--unresolved-symbols=ignore-all"
+              -DLUA_LIBRARIES="/tmp/lua-stub/$ABI/liblua.so" \
+              -DCMAKE_BUILD_TYPE=Release
 
             cmake --build "build-$ABI" -j4
 
             mkdir -p "$OUT_DIR/$ABI"
-            # Rename to use dots: libplugin.yoga.so (Android Lua require convention)
             cp "build-$ABI/libplugin.yoga.so" "$OUT_DIR/$ABI/libplugin.yoga.so"
             ls -lh "$OUT_DIR/$ABI/"
           done

@@ -6,11 +6,6 @@ set(CMAKE_CXX_STANDARD 20)
 
 option(SOLAR2D_PLUGIN "Build as Solar2D plugin (dynamic_lookup for Lua symbols)" OFF)
 
-# On Android, Lua symbols are resolved at runtime from the host app
-if(ANDROID)
-    string(REPLACE "-Wl,--no-undefined" "" CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS}")
-endif()
-
 # --- Yoga static library ---
 file(GLOB_RECURSE YOGA_SOURCES yoga/yoga/*.cpp)
 add_library(yogacore STATIC ${YOGA_SOURCES})
@@ -82,6 +77,10 @@ if(SOLAR2D_PLUGIN)
             PREFIX "lib"
             OUTPUT_NAME "plugin.yoga"
         )
+        # On Android, link against Corona's liblua.so for Lua symbol resolution at dlopen time
+        if(LUA_LIBRARIES)
+            target_link_libraries(plugin_yoga PRIVATE ${LUA_LIBRARIES})
+        endif()
         target_link_libraries(plugin_yoga PRIVATE log)
     endif()
 else()
