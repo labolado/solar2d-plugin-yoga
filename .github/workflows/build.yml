@@ -103,7 +103,8 @@ jobs:
               -DANDROID_ABI="$ABI" \
               -DANDROID_PLATFORM=android-24 \
               -DLUA_INCLUDE_DIR="$LUA_INCLUDE" \
-              -DCMAKE_BUILD_TYPE=Release
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_SHARED_LINKER_FLAGS="-Wl,--unresolved-symbols=ignore-all"
 
             cmake --build "build-$ABI" -j4
 
