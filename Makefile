@@ -7,7 +7,8 @@ solar2d:
 	@mkdir -p build-solar2d && cd build-solar2d && cmake .. -DSOLAR2D_PLUGIN=ON && make -j4
 
 mac-install: solar2d
-	@cp build-solar2d/plugin_yoga.dylib "/Applications/Corona-b3/Native/Corona/mac/plugins/"
+	@mkdir -p "$(HOME)/Library/Application Support/Corona/Simulator/Plugins"
+	@cp build-solar2d/plugin_yoga.dylib "$(HOME)/Library/Application Support/Corona/Simulator/Plugins/"
 	@echo "Installed plugin_yoga.dylib to Corona Simulator plugins"
 
 clean:
