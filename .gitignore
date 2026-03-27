@@ -21,3 +21,6 @@ Makefile.cmake
 .idea/
 *.swp
 *~
+*-handoff.md
+build-solar2d/
+build-win32/
