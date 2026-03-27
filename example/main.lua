@@ -23,20 +23,27 @@ end
 local function showMenu()
     contentGroup.isVisible = false
     clearGroup(contentGroup)
+    backGroup.isVisible = false
     menuGroup.isVisible = true
 end
 
 -- ── Back button (shared) ─────────────────────────────────
 
+local backGroup = display.newGroup()
+backGroup.isVisible = false
+
 local function addBackButton()
-    local bg = display.newRoundedRect(contentGroup, ox + 60, oy + 36, 100, 40, 8)
-    bg:setFillColor(0.3)
-    local txt = display.newText(contentGroup, "< Back", ox + 60, oy + 36, native.systemFontBold, 16)
+    while backGroup.numChildren > 0 do backGroup[1]:removeSelf() end
+    local btnBg = display.newRoundedRect(backGroup, ox + 60, oy + 36, 100, 40, 8)
+    btnBg:setFillColor(0.3, 0.3, 0.3, 0.9)
+    local txt = display.newText(backGroup, "< Back", ox + 60, oy + 36, native.systemFontBold, 16)
     txt:setFillColor(1)
-    bg:addEventListener("tap", function()
+    btnBg:addEventListener("tap", function()
         showMenu()
         return true
     end)
+    backGroup.isVisible = true
+    backGroup:toFront()
 end
 
 -- ── 1. Layout Demo ───────────────────────────────────────
