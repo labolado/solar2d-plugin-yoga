@@ -198,6 +198,18 @@ local function runBenchmark()
     end)
 end
 
+-- ── 4. API Gallery ─────────────────────────────────────────
+
+local function runGallery()
+    addBackButton()
+
+    local bg = display.newRect(contentGroup, ox + W/2, oy + H/2, W, H)
+    bg:setFillColor(0.12)
+
+    local gallery = require("gallery")
+    gallery.show(contentGroup)
+end
+
 -- ── Menu UI ──────────────────────────────────────────────
 
 local function buildMenu()
@@ -215,6 +227,7 @@ local function buildMenu()
     -- Buttons
     local buttons = {
         {label = "Layout Demo",    color = {0.2, 0.6, 1.0}, fn = runDemo},
+        {label = "API Gallery",    color = {0.8, 0.4, 0.9}, fn = runGallery},
         {label = "API Tests (74)", color = {0.2, 0.8, 0.4}, fn = runTests},
         {label = "Benchmark",      color = {0.9, 0.5, 0.1}, fn = runBenchmark},
     }
