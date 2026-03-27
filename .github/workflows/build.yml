@@ -331,7 +331,7 @@ jobs:
           name: iphone-sim
           path: build/*.tgz
 
-  # ── Windows (x64 DLL) ─────────────────────────────────────
+  # ── Windows (x86 DLL — Solar2D Simulator is 32-bit) ──────
   build-win32-sim:
     needs: version
     runs-on: windows-latest
@@ -350,6 +350,8 @@ jobs:
           echo "LUA_INCLUDE=$env:TEMP\lua-5.1.5\src" >> $env:GITHUB_ENV
 
       - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
 
       - name: Build Lua 5.1 lib
         shell: cmd
