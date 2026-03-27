@@ -97,7 +97,7 @@ else()
             OUTPUT_NAME "plugin_yoga"
         )
     elseif(WIN32)
-        find_library(LUA_LIB lua51)
+        find_library(LUA_LIB lua NAMES lua lua51)
         if(LUA_LIB)
             target_link_libraries(plugin_yoga PRIVATE ${LUA_LIB})
         endif()

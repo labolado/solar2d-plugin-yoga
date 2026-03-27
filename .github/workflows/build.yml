@@ -363,9 +363,9 @@ jobs:
             ltable.c ltm.c lundump.c lvm.c lzio.c lauxlib.c lbaselib.c ^
             ldblib.c liolib.c lmathlib.c loslib.c ltablib.c lstrlib.c ^
             loadlib.c linit.c
-          lib /OUT:lua51.lib *.obj
+          lib /OUT:lua.lib *.obj
           del *.obj
-          echo Built lua51.lib
+          echo Built lua.lib
 
       - name: CMake configure
         shell: cmd
