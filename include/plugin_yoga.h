@@ -30,4 +30,8 @@ void yoga_register_style(lua_State *L);
 void yoga_register_layout(lua_State *L);
 void yoga_register_enums(lua_State *L);
 
+// Batch style setter: apply style properties from a Lua table at stack index
+// Used by both setStyle method and newTree module function
+void yoga_apply_style_table(lua_State *L, YGNodeRef node, int table_index);
+
 #endif // PLUGIN_YOGA_H

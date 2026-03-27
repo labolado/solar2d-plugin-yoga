@@ -58,6 +58,42 @@ static int l_node_get_child(lua_State *L) {
     return 1;
 }
 
+// ---- Batch tree creation ----
+
+// Recursive helper: create a node tree from a Lua table at stack index
+static void create_tree_recursive(lua_State *L, int table_index, YGNodeRef node) {
+    int tidx = table_index;
+    if (tidx < 0) tidx = lua_gettop(L) + tidx + 1;
+
+    // Apply style properties from this table
+    yoga_apply_style_table(L, node, tidx);
+
+    // Process children array if present
+    lua_getfield(L, tidx, "children");
+    if (lua_type(L, -1) == LUA_TTABLE) {
+        int children_idx = lua_gettop(L);
+        int len = (int)lua_objlen(L, children_idx);
+        for (int i = 1; i <= len; i++) {
+            lua_rawgeti(L, children_idx, i);
+            if (lua_type(L, -1) == LUA_TTABLE) {
+                YGNodeRef child = YGNodeNew();
+                create_tree_recursive(L, -1, child);
+                YGNodeInsertChild(node, child, (uint32_t)(i - 1));
+            }
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);  // pop children field
+}
+
+static int l_new_tree(lua_State *L) {
+    luaL_checktype(L, 1, LUA_TTABLE);
+    YGNodeRef root = YGNodeNew();
+    create_tree_recursive(L, 1, root);
+    yoga_push_node(L, root);
+    return 1;
+}
+
 // ---- Layout calculation ----
 
 static int l_node_calculate_layout(lua_State *L) {
@@ -110,6 +146,7 @@ static const luaL_Reg node_methods[] = {
 // ---- Module functions ----
 static const luaL_Reg module_funcs[] = {
     { "newNode", l_node_new },
+    { "newTree", l_new_tree },
     { NULL, NULL }
 };
 
