@@ -116,7 +116,7 @@ local function makeFlexDirectionDemo(direction, dirEnum)
             for _, n in ipairs(nodes) do n:setFlexGrow(0); n:setHeight(dh - 12) end
         end
 
-        renderNodes(group, dx, dy, nodes, root)
+        renderNodes(group, dx, dy, nodes, root, dw, dh)
         root:freeRecursive()
     end
 end
@@ -133,7 +133,7 @@ local function makeJustifyDemo(justifyEnum)
         local nodes = addChildren(root, 3, nil, 20)
         for _, n in ipairs(nodes) do n:setWidthPercent(50) end
 
-        renderNodes(group, dx, dy, nodes, root)
+        renderNodes(group, dx, dy, nodes, root, dw, dh)
         root:freeRecursive()
     end
 end
@@ -158,7 +158,7 @@ local function makeAlignItemsDemo(alignEnum)
             nodes[i] = child
         end
 
-        renderNodes(group, dx, dy, nodes, root)
+        renderNodes(group, dx, dy, nodes, root, dw, dh)
         root:freeRecursive()
     end
 end
@@ -175,7 +175,7 @@ local function makeWrapDemo(wrapEnum, isWrap)
 
         local nodes = addChildren(root, 5, 60, 30)
 
-        renderNodes(group, dx, dy, nodes, root)
+        renderNodes(group, dx, dy, nodes, root, dw, dh)
         root:freeRecursive()
     end
 end
