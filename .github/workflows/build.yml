@@ -331,10 +331,10 @@ jobs:
           name: iphone-sim
           path: build/*.tgz
 
-  # ── Windows (x86 DLL — Solar2D Simulator is 32-bit) ──────
+  # ── Windows (x86 DLL via mingw — Solar2D Simulator is 32-bit) ──
   build-win32-sim:
     needs: version
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     env:
       PLUGIN_VERSION: ${{ needs.version.outputs.plugin_version }}
     steps:
@@ -342,50 +342,53 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install mingw-w64
+        run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-i686 g++-mingw-w64-i686
+
       - name: Download Lua 5.1 headers
-        shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "https://www.lua.org/ftp/lua-5.1.5.tar.gz" -OutFile "$env:TEMP\lua.tar.gz"
-          tar xzf "$env:TEMP\lua.tar.gz" -C "$env:TEMP"
-          echo "LUA_INCLUDE=$env:TEMP\lua-5.1.5\src" >> $env:GITHUB_ENV
+          curl -fL -o /tmp/lua-5.1.5.tar.gz https://www.lua.org/ftp/lua-5.1.5.tar.gz
+          tar xzf /tmp/lua-5.1.5.tar.gz -C /tmp
+          echo "LUA_INCLUDE=/tmp/lua-5.1.5/src" >> $GITHUB_ENV
 
-      - uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x86
-
-      - name: Build Lua 5.1 import library (for linking against Solar2D's lua.dll)
-        shell: cmd
+      - name: Build lua.dll import library
         run: |
-          cd /d "%LUA_INCLUDE%"
-          cl /MT /O2 /c /W3 /DLUA_BUILD_AS_DLL ^
-            lapi.c lcode.c ldebug.c ldo.c ldump.c lfunc.c lgc.c llex.c ^
-            lmem.c lobject.c lopcodes.c lparser.c lstate.c lstring.c ^
-            ltable.c ltm.c lundump.c lvm.c lzio.c lauxlib.c lbaselib.c ^
-            ldblib.c liolib.c lmathlib.c loslib.c ltablib.c lstrlib.c ^
+          cd "$LUA_INCLUDE"
+          i686-w64-mingw32-gcc -c -O2 -DLUA_BUILD_AS_DLL \
+            lapi.c lcode.c ldebug.c ldo.c ldump.c lfunc.c lgc.c llex.c \
+            lmem.c lobject.c lopcodes.c lparser.c lstate.c lstring.c \
+            ltable.c ltm.c lundump.c lvm.c lzio.c lauxlib.c lbaselib.c \
+            ldblib.c liolib.c lmathlib.c loslib.c ltablib.c lstrlib.c \
             loadlib.c linit.c
-          link /DLL /OUT:lua.dll /IMPLIB:lua.lib *.obj
-          del *.obj *.exp lua.dll
-          echo Built lua.lib (import library for lua.dll)
+          i686-w64-mingw32-gcc -shared -o lua.dll *.o -Wl,--out-implib,liblua.a
+          rm -f *.o lua.dll
+          echo "Built liblua.a (import library for lua.dll)"
 
-      - name: CMake configure
-        shell: cmd
+      - name: Build plugin
         run: |
-          cmake -B build -G "NMake Makefiles" ^
-            -DLUA_INCLUDE_DIR="%LUA_INCLUDE%" ^
-            -DCMAKE_LIBRARY_PATH="%LUA_INCLUDE%" ^
-            -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded ^
-            -DCMAKE_POLICY_DEFAULT_CMP0091=NEW
-
-      - name: CMake build
-        shell: cmd
-        run: cmake --build build
+          mkdir -p build/win32
+          # Compile Yoga
+          for f in yoga/yoga/*.cpp yoga/yoga/**/*.cpp; do
+            [ -f "$f" ] || continue
+            i686-w64-mingw32-g++ -c -O2 -std=c++20 -I yoga -o "build/win32/$(basename $f .cpp).o" "$f"
+          done
+          # Compile plugin
+          for f in src/*.c; do
+            i686-w64-mingw32-gcc -c -O2 -I include -I yoga -I "$LUA_INCLUDE" -o "build/win32/$(basename $f .c).o" "$f"
+          done
+          # Link against lua.dll import lib
+          i686-w64-mingw32-g++ -shared -o build/win32/plugin_yoga.dll \
+            build/win32/*.o \
+            "$LUA_INCLUDE/liblua.a" \
+            -static-libgcc -static-libstdc++ \
+            -O2
+          file build/win32/plugin_yoga.dll
+          i686-w64-mingw32-objdump -p build/win32/plugin_yoga.dll | grep "DLL Name"
 
       - name: Package win32-sim tgz
-        shell: bash
         run: |
           STAGING=$(mktemp -d)
-          cp build/plugin_yoga.dll "$STAGING/"
+          cp build/win32/plugin_yoga.dll "$STAGING/"
           cat > "$STAGING/metadata.lua" << 'METALUA'
           local metadata =
           {
