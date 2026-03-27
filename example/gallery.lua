@@ -111,7 +111,7 @@ local function makeFlexDirectionDemo(direction, dirEnum)
         local ch = isRow and nil or 30
         local nodes = addChildren(root, 3, cw, ch)
         if not isRow then
-            local childW = (dw - 12) * 0.6  -- 60% of content area (dw minus padding)
+            local childW = math.floor((dw - 12) * 0.4)  -- 40% width to clearly show alignment
             for _, n in ipairs(nodes) do n:setWidth(childW) end
         else
             for _, n in ipairs(nodes) do n:setFlexGrow(0); n:setHeight(dh - 12) end
@@ -132,7 +132,7 @@ local function makeJustifyDemo(justifyEnum)
         root:setPadding(yoga.Edge.all, 6)
 
         local nodes = addChildren(root, 3, nil, 20)
-        local childW = (dw - 12) * 0.5
+        local childW = math.floor((dw - 12) * 0.35)
         for _, n in ipairs(nodes) do n:setWidth(childW) end
 
         renderNodes(group, dx, dy, nodes, root, dw, dh)
