@@ -108,7 +108,7 @@ local function makeFlexDirectionDemo(direction, dirEnum)
 
         local isRow = (direction == "row" or direction == "rowReverse")
         local cw = isRow and 40 or nil
-        local ch = isRow and nil or 30
+        local ch = isRow and nil or 25
         local nodes = addChildren(root, 3, cw, ch)
         if not isRow then
             local childW = math.floor((dw - 12) * 0.4)  -- 40% width to clearly show alignment
@@ -411,7 +411,7 @@ local CARDS = {}
 for _, dir in ipairs({"column", "columnReverse", "row", "rowReverse"}) do
     CARDS[#CARDS + 1] = {
         title = "FlexDirection: " .. dir,
-        height = 100,
+        height = 130,
         fn = makeFlexDirectionDemo(dir, yoga.FlexDirection[dir]),
     }
 end
