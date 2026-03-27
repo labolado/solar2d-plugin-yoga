@@ -5,6 +5,26 @@ settings = {
         default = "portrait",
         supported = { "portrait" },
     },
+    iphone = {
+        plist = {
+            UILaunchStoryboardName = "LaunchScreen",
+            UIStatusBarHidden = true,
+        },
+    },
+    android = {
+        usesPermissions = {},
+        supportsScreens = {
+            smallScreens  = true,
+            normalScreens = true,
+            largeScreens  = true,
+            xlargeScreens = true,
+        },
+    },
+    window = {
+        titleText = {
+            default = "Yoga Layout Demo",
+        },
+    },
     plugins = {
         ["plugin.yoga"] = {
             publisherId = "com.labolado",

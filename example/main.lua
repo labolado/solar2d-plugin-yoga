@@ -1,9 +1,14 @@
 local yoga = require("plugin.yoga")
 
--- Create a simple header + content + footer layout
+-- Full screen (including letterbox margins)
+local W = display.actualContentWidth
+local H = display.actualContentHeight
+local ox = display.screenOriginX
+local oy = display.screenOriginY
+
 local root = yoga.newNode()
-root:setWidth(display.contentWidth)
-root:setHeight(display.contentHeight)
+root:setWidth(W)
+root:setHeight(H)
 root:setFlexDirection(yoga.FlexDirection.column)
 
 local header = yoga.newNode()
@@ -21,26 +26,22 @@ root:insertChild(footer, 2)
 
 root:calculateLayout()
 
--- Draw colored rectangles at computed positions
+-- Draw
 local colors = {
-    {0.2, 0.6, 1.0},   -- header: blue
-    {0.9, 0.9, 0.9},    -- content: light gray
-    {0.2, 0.8, 0.4},    -- footer: green
+    {0.2, 0.6, 1.0},
+    {0.9, 0.9, 0.9},
+    {0.2, 0.8, 0.4},
 }
-
-local nodes = {header, content, footer}
 local labels = {"Header", "Content", "Footer"}
+local nodes = {header, content, footer}
 
 for i, node in ipairs(nodes) do
     local x, y, w, h = node:getLayout()
-    local rect = display.newRect(x + w/2, y + h/2, w, h)
+    local rect = display.newRect(ox + x + w/2, oy + y + h/2, w, h)
     rect:setFillColor(unpack(colors[i]))
-
-    local text = display.newText(labels[i], x + w/2, y + h/2, native.systemFontBold, 20)
+    local text = display.newText(labels[i], ox + x + w/2, oy + y + h/2, native.systemFontBold, 20)
     text:setFillColor(0)
 end
 
--- Cleanup
 root:freeRecursive()
-
-print("Yoga " .. "v3.2.1" .. " layout demo")
+print("Yoga v3.2.1 layout demo")
