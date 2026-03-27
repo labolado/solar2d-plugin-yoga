@@ -168,12 +168,15 @@ local function runBenchmark()
             origPrint(...)
         end
 
-        local ok, err = pcall(require, "benchmark")
+        local ok, benchModule = pcall(require, "benchmark")
+        if ok and benchModule and benchModule.run then
+            ok, err = pcall(benchModule.run)
+        end
 
         print = origPrint
 
         if not ok then
-            statusText.text = "Error: " .. tostring(err)
+            statusText.text = "Error: " .. tostring(benchModule or err)
             statusText:setFillColor(1, 0.3, 0.3)
             return
         end

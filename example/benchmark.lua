@@ -392,6 +392,4 @@ local function run()
     print("")
 end
 
-run()
-
 return { run = run }

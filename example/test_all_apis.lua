@@ -1437,3 +1437,5 @@ if #failures == 0 then
 end
 
 print("========================================")
+
+return { results = results, passed = passed, failed = failed }
