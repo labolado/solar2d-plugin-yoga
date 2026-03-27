@@ -58,8 +58,8 @@ local function addChildren(root, count, w, h)
     return nodes
 end
 
-local function renderNodes(group, baseX, baseY, nodes, root)
-    root:calculateLayout()
+local function renderNodes(group, baseX, baseY, nodes, root, w, h)
+    root:calculateLayout(w or root:getWidth(), h or root:getHeight())
     for i, node in ipairs(nodes) do
         local nx, ny, nw, nh = node:getLayout()
         local color = CHILD_COLORS[((i - 1) % #CHILD_COLORS) + 1]
@@ -198,7 +198,7 @@ local function flexGrowDemo(group, dx, dy, dw, dh)
         nodes[i] = child
     end
 
-    root:calculateLayout()
+    root:calculateLayout(dw, dh)
     for i, node in ipairs(nodes) do
         local nx, ny, nw, nh = node:getLayout()
         local color = CHILD_COLORS[i]
@@ -244,7 +244,7 @@ local function paddingMarginDemo(group, dx, dy, dw, dh)
     child2:setMargin(yoga.Edge.all, 12)
     root:insertChild(child2, 1)
 
-    root:calculateLayout()
+    root:calculateLayout(dw, dh)
 
     -- Draw padding zone
     local px, py, pw, ph = root:getLayout()
@@ -287,7 +287,7 @@ local function absoluteDemo(group, dx, dy, dw, dh)
     abs:setHeight(35)
     root:insertChild(abs, 1)
 
-    root:calculateLayout()
+    root:calculateLayout(dw, dh)
 
     local nx, ny, nw, nh = normal:getLayout()
     drawRect(group, dx + nx, dy + ny, nw, nh, COLORS.green, "relative")
@@ -331,7 +331,7 @@ local function nestedDemo(group, dx, dy, dw, dh)
     footer:setHeight(24)
     root:insertChild(footer, 2)
 
-    root:calculateLayout()
+    root:calculateLayout(dw, dh)
 
     local parts = {
         {header,  COLORS.blue,   "Header"},
@@ -386,7 +386,7 @@ local function aspectRatioDemo(group, dx, dy, dw, dh)
     box3:setAspectRatio(1)
     root:insertChild(box3, 2)
 
-    root:calculateLayout()
+    root:calculateLayout(dw, dh)
 
     local boxes = {
         {box1, COLORS.red,   "2:1"},
