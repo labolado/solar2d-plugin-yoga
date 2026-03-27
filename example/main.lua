@@ -11,6 +11,8 @@ local cx = ox + W / 2
 local menuGroup = display.newGroup()
 local contentGroup = display.newGroup()
 contentGroup.isVisible = false
+local backGroup = display.newGroup()
+backGroup.isVisible = false
 
 -- ── Utility ──────────────────────────────────────────────
 
@@ -28,9 +30,6 @@ local function showMenu()
 end
 
 -- ── Back button (shared) ─────────────────────────────────
-
-local backGroup = display.newGroup()
-backGroup.isVisible = false
 
 local function addBackButton()
     while backGroup.numChildren > 0 do backGroup[1]:removeSelf() end
