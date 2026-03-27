@@ -357,7 +357,7 @@ jobs:
         shell: cmd
         run: |
           cd /d "%LUA_INCLUDE%"
-          cl /O2 /c /W3 /DLUA_BUILD_AS_DLL ^
+          cl /MT /O2 /c /W3 /DLUA_BUILD_AS_DLL ^
             lapi.c lcode.c ldebug.c ldo.c ldump.c lfunc.c lgc.c llex.c ^
             lmem.c lobject.c lopcodes.c lparser.c lstate.c lstring.c ^
             ltable.c ltm.c lundump.c lvm.c lzio.c lauxlib.c lbaselib.c ^
@@ -373,7 +373,9 @@ jobs:
           cmake -B build -G "NMake Makefiles" ^
             -DLUA_INCLUDE_DIR="%LUA_INCLUDE%" ^
             -DCMAKE_LIBRARY_PATH="%LUA_INCLUDE%" ^
-            -DCMAKE_BUILD_TYPE=Release
+            -DCMAKE_BUILD_TYPE=Release ^
+            -DCMAKE_C_FLAGS_RELEASE="/MT /O2" ^
+            -DCMAKE_CXX_FLAGS_RELEASE="/MT /O2"
 
       - name: CMake build
         shell: cmd
