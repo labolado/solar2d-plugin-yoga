@@ -153,6 +153,8 @@ static const luaL_Reg module_funcs[] = {
 // ---- Entry point ----
 #if __has_include("CoronaMacros.h")
 #include "CoronaMacros.h"
+#elif defined(_WIN32)
+#define CORONA_EXPORT __declspec(dllexport)
 #else
 #define CORONA_EXPORT extern
 #endif
