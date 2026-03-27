@@ -374,8 +374,8 @@ jobs:
             -DLUA_INCLUDE_DIR="%LUA_INCLUDE%" ^
             -DCMAKE_LIBRARY_PATH="%LUA_INCLUDE%" ^
             -DCMAKE_BUILD_TYPE=Release ^
-            -DCMAKE_C_FLAGS_RELEASE="/MT /O2" ^
-            -DCMAKE_CXX_FLAGS_RELEASE="/MT /O2"
+            -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded ^
+            -DCMAKE_POLICY_DEFAULT_CMP0091=NEW
 
       - name: CMake build
         shell: cmd
