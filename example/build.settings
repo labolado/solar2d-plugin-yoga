@@ -1,4 +1,4 @@
-local yoga_base = "https://github.com/labolado/solar2d-plugin-yoga/releases/download/v3/"
+local yoga_base = "https://github.com/labolado/solar2d-plugin-yoga/releases/download/v4/"
 
 settings = {
     orientation = {
