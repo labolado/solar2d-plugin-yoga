@@ -357,7 +357,7 @@ jobs:
         shell: cmd
         run: |
           cd /d "%LUA_INCLUDE%"
-          cl /MT /O2 /c /W3 /DLUA_BUILD_AS_DLL ^
+          cl /MD /O2 /c /W3 /DLUA_BUILD_AS_DLL ^
             lapi.c lcode.c ldebug.c ldo.c ldump.c lfunc.c lgc.c llex.c ^
             lmem.c lobject.c lopcodes.c lparser.c lstate.c lstring.c ^
             ltable.c ltm.c lundump.c lvm.c lzio.c lauxlib.c lbaselib.c ^
@@ -373,11 +373,11 @@ jobs:
           mkdir build\win32
           @echo Compiling Yoga C++ sources...
           for /R yoga\yoga %%f in (*.cpp) do (
-            cl /MT /O2 /c /EHsc /std:c++20 /I yoga /Fo"build\win32\%%~nf.obj" "%%f"
+            cl /MD /O2 /c /EHsc /std:c++20 /I yoga /Fo"build\win32\%%~nf.obj" "%%f"
           )
           @echo Compiling plugin C sources...
           for %%f in (src\*.c) do (
-            cl /MT /O2 /c /W3 /I include /I yoga /I "%LUA_INCLUDE%" /Fo"build\win32\%%~nf.obj" "%%f"
+            cl /MD /O2 /c /W3 /I include /I yoga /I "%LUA_INCLUDE%" /Fo"build\win32\%%~nf.obj" "%%f"
           )
           @echo Linking plugin_yoga.dll...
           link /DLL /OUT:build\win32\plugin_yoga.dll ^
