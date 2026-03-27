@@ -363,9 +363,9 @@ jobs:
             ltable.c ltm.c lundump.c lvm.c lzio.c lauxlib.c lbaselib.c ^
             ldblib.c liolib.c lmathlib.c loslib.c ltablib.c lstrlib.c ^
             loadlib.c linit.c
-          link /DLL /OUT:lua.dll /IMPLIB:lua.lib /NOENTRY *.obj kernel32.lib
-          del *.obj *.exp lua.dll
-          echo Built lua.lib (import library for lua.dll)
+          link /DLL /OUT:lua.dll /IMPLIB:lua.lib *.obj kernel32.lib
+          del *.obj *.exp
+          echo Built lua.lib + lua.dll
 
       - name: Compile Yoga and plugin
         shell: cmd
