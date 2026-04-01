@@ -334,7 +334,7 @@ jobs:
   # ── Windows (x86 DLL via MSVC — Solar2D Simulator is 32-bit) ──
   build-win32-sim:
     needs: version
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     env:
       PLUGIN_VERSION: ${{ needs.version.outputs.plugin_version }}
     steps:
@@ -342,50 +342,57 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Download Lua 5.1 headers
-        shell: pwsh
+      - name: Install mingw-w64 (i686)
         run: |
-          Invoke-WebRequest -Uri "https://www.lua.org/ftp/lua-5.1.5.tar.gz" -OutFile "$env:TEMP\lua.tar.gz"
-          tar xzf "$env:TEMP\lua.tar.gz" -C "$env:TEMP"
-          echo "LUA_INCLUDE=$env:TEMP\lua-5.1.5\src" >> $env:GITHUB_ENV
+          sudo apt-get update
+          sudo apt-get install -y g++-mingw-w64-i686
 
-      - uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x86
+      - name: Download Lua 5.1 headers
+        run: |
+          curl -fL -o /tmp/lua-5.1.5.tar.gz https://www.lua.org/ftp/lua-5.1.5.tar.gz
+          tar xzf /tmp/lua-5.1.5.tar.gz -C /tmp
+          echo "LUA_INCLUDE=/tmp/lua-5.1.5/src" >> $GITHUB_ENV
 
       - name: Build lua.dll import library
-        shell: cmd
         run: |
-          cd /d "%LUA_INCLUDE%"
-          cl /MD /O2 /c /W3 /DLUA_BUILD_AS_DLL ^
-            lapi.c lcode.c ldebug.c ldo.c ldump.c lfunc.c lgc.c llex.c ^
-            lmem.c lobject.c lopcodes.c lparser.c lstate.c lstring.c ^
-            ltable.c ltm.c lundump.c lvm.c lzio.c lauxlib.c lbaselib.c ^
-            ldblib.c liolib.c lmathlib.c loslib.c ltablib.c lstrlib.c ^
-            loadlib.c linit.c
-          link /DLL /OUT:lua.dll /IMPLIB:lua.lib *.obj kernel32.lib
-          del *.obj *.exp
-          echo Built lua.lib + lua.dll
+          cd "$LUA_INCLUDE"
+          # Extract Lua API function names for import stub
+          grep -hE '^LUA_API|^LUALIB_API' lua.h lualib.h lauxlib.h | \
+            grep -oE '(lua_[a-zA-Z_]+|luaL_[a-zA-Z_]+|luaopen_[a-zA-Z_]+)' | \
+            sort -u > /tmp/lua_exports.txt
+          echo "LIBRARY lua.dll" > /tmp/lua.def
+          echo "EXPORTS" >> /tmp/lua.def
+          cat /tmp/lua_exports.txt >> /tmp/lua.def
+          i686-w64-mingw32-dlltool -d /tmp/lua.def -l /tmp/lua.lib -D lua.dll
+          echo "Built lua.lib with $(wc -l < /tmp/lua_exports.txt) exports"
 
-      - name: Compile Yoga and plugin
-        shell: cmd
+      - name: Compile and link plugin_yoga.dll
         run: |
-          mkdir build\win32
-          @echo Compiling Yoga C++ sources...
-          for /R yoga\yoga %%f in (*.cpp) do (
-            cl /MD /O2 /c /EHsc /std:c++20 /I yoga /Fo"build\win32\%%~nf.obj" "%%f"
-          )
-          @echo Compiling plugin C sources...
-          for %%f in (src\*.c) do (
-            cl /MD /O2 /c /W3 /I include /I yoga /I "%LUA_INCLUDE%" /Fo"build\win32\%%~nf.obj" "%%f"
-          )
-          @echo Linking plugin_yoga.dll...
-          link /DLL /OUT:build\win32\plugin_yoga.dll ^
-            build\win32\*.obj ^
-            "%LUA_INCLUDE%\lua.lib" ^
-            /EXPORT:luaopen_plugin_yoga
-          del build\win32\*.obj build\win32\*.exp build\win32\*.lib 2>nul
-          dir build\win32\plugin_yoga.dll
+          mkdir -p build/win32
+          # Compile Yoga C++ sources
+          find yoga/yoga -name '*.cpp' | while IFS= read -r f; do
+            BASENAME=$(echo "$f" | tr '/' '_' | sed 's/\.cpp$//')
+            i686-w64-mingw32-g++ -c -O2 -std=c++20 -I yoga/ -fno-rtti \
+              -o "build/win32/${BASENAME}.o" "$f"
+          done
+          # Compile plugin C sources
+          for f in src/*.c; do
+            BASENAME=$(basename "$f" .c)
+            i686-w64-mingw32-gcc -c -O2 -I include -I yoga/ -I "$LUA_INCLUDE" \
+              -o "build/win32/${BASENAME}.o" "$f"
+          done
+          # Link DLL with static winpthread (avoids libwinpthread-1.dll dependency)
+          i686-w64-mingw32-g++ -shared -o build/win32/plugin_yoga.dll \
+            build/win32/*.o /tmp/lua.lib \
+            -static-libgcc -static-libstdc++ \
+            -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,-Bdynamic,--no-whole-archive \
+            -Wl,--export-all-symbols
+          rm -f build/win32/*.o
+          echo "=== Dependencies ==="
+          i686-w64-mingw32-objdump -p build/win32/plugin_yoga.dll | grep "DLL Name"
+          echo "=== Export ==="
+          i686-w64-mingw32-objdump -p build/win32/plugin_yoga.dll | grep "luaopen"
+          ls -lh build/win32/plugin_yoga.dll
 
       - name: Package win32-sim tgz
         shell: bash
