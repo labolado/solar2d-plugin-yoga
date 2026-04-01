@@ -2,6 +2,10 @@
 
 Facebook Yoga Flexbox layout engine for Solar2D. Full CSS Flexbox support including gap, aspect-ratio, and all alignment modes.
 
+<img width="260" height="578" alt="image" src="https://github.com/user-attachments/assets/c8dcbe09-f1ae-4dd0-a160-9a2d45e15058" /> ![Uploading image.png…]()
+
+
+
 ## Quick Start
 
 ```lua
