@@ -1,0 +1,168 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install dependencies
+        run: brew install luajit cmake
+      - name: Build Solar2D plugin
+        run: |
+          mkdir -p build && cd build
+          cmake .. -DSOLAR2D_PLUGIN=ON \
+            -DLUA_INCLUDE_DIR=$(brew --prefix luajit)/include/luajit-2.1
+          make -j4
+      - name: Package mac-sim and mac
+        run: |
+          cd build
+          cp plugin_yoga.dylib plugin_yoga-mac-sim.dylib
+          tar czf plugin.yoga-mac-sim.tgz plugin_yoga-mac-sim.dylib
+          cp plugin_yoga.dylib plugin_yoga-mac.dylib
+          tar czf plugin.yoga-mac.tgz plugin_yoga-mac.dylib
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac
+          path: build/plugin.yoga-mac*.tgz
+
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install dependencies
+        run: brew install luajit cmake
+      - name: Build iphone-sim (arm64)
+        run: |
+          mkdir -p build-iphone-sim && cd build-iphone-sim
+          cmake .. -DSOLAR2D_PLUGIN=ON \
+            -DCMAKE_OSX_SYSROOT=$(xcrun --sdk iphonesimulator --show-sdk-path) \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_C_FLAGS="-target arm64-apple-ios-simulator" \
+            -DCMAKE_CXX_FLAGS="-target arm64-apple-ios-simulator" \
+            -DLUA_INCLUDE_DIR=$(brew --prefix luajit)/include/luajit-2.1
+          make -j4
+      - name: Build iphone (arm64)
+        run: |
+          mkdir -p build-iphone && cd build-iphone
+          cmake .. -DSOLAR2D_PLUGIN=ON \
+            -DCMAKE_OSX_SYSROOT=$(xcrun --sdk iphoneos --show-sdk-path) \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_C_FLAGS="-target arm64-apple-ios" \
+            -DCMAKE_CXX_FLAGS="-target arm64-apple-ios" \
+            -DLUA_INCLUDE_DIR=$(brew --prefix luajit)/include/luajit-2.1
+          make -j4
+      - name: Package
+        run: |
+          cp build-iphone-sim/libplugin_yoga.a libplugin_yoga-iphone-sim.a
+          tar czf plugin.yoga-iphone-sim.tgz libplugin_yoga-iphone-sim.a
+          cp build-iphone/libplugin_yoga.a libplugin_yoga-iphone.a
+          tar czf plugin.yoga-iphone.tgz libplugin_yoga-iphone.a
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios
+          path: plugin.yoga-iphone*.tgz
+
+  android:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        abi: [arm64-v8a, armeabi-v7a, x86_64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake
+      - name: Set up NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27
+      - name: Build for ${{ matrix.abi }}
+        run: |
+          mkdir -p build-${{ matrix.abi }} && cd build-${{ matrix.abi }}
+          cmake .. -DSOLAR2D_PLUGIN=ON \
+            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=${{ matrix.abi }} \
+            -DANDROID_PLATFORM=android-21 \
+            -DANDROID_ALLOW_UNDEFINED_SYMBOLS=TRUE
+          make -j4
+      - name: Package
+        run: |
+          mkdir -p android-package/${{ matrix.abi }}
+          cp build-${{ matrix.abi }}/libplugin.yoga.so android-package/${{ matrix.abi }}/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ matrix.abi }}
+          path: android-package/
+
+  android-bundle:
+    needs: android
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: android-*
+          merge-multiple: true
+      - run: |
+          tar czf plugin.yoga-android.tgz arm64-v8a/ armeabi-v7a/ x86_64/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: plugin.yoga-android.tgz
+
+  win32:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install LuaJIT
+        shell: pwsh
+        run: |
+          choco install luajit -y
+          echo "LUA_DIR=C:\Program Files (x86)\LuaJIT" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Build
+        shell: pwsh
+        run: |
+          mkdir build -Force
+          cd build
+          cmake .. -DSOLAR2D_PLUGIN=ON `
+            -DLUA_INCLUDE_DIR="$env:LUA_DIR\include" `
+            -DLUA_LIBRARIES="$env:LUA_DIR\lib\lua51.lib"
+          cmake --build . --config Release
+      - name: Package
+        shell: pwsh
+        run: |
+          cd build
+          cp Release/plugin_yoga.dll plugin_yoga-win32-sim.dll
+          tar czf plugin.yoga-win32-sim.tgz plugin_yoga-win32-sim.dll
+          cp Release/plugin_yoga.dll plugin_yoga-win32.dll
+          tar czf plugin.yoga-win32.tgz plugin_yoga-win32.dll
+      - uses: actions/upload-artifact@v4
+        with:
+          name: win32
+          path: build/plugin.yoga-win32*.tgz
+
+  release:
+    needs: [mac, ios, android-bundle, win32]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - name: Upload release assets
+        run: |
+          gh release upload ${{ github.ref_name }} *.tgz --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,15 +1,25 @@
-.PHONY: mac mac-install solar2d android clean
+.PHONY: mac mac-sim mac-install solar2d android clean package
 
 ANDROID_HOME ?= $(HOME)/Library/Android/sdk
 ANDROID_NDK ?= $(shell ls -d $(ANDROID_HOME)/ndk/*/ 2>/dev/null | sort -V | tail -1)
 CORONA_NATIVE ?= $(HOME)/Library/Application Support/Corona/NativePE
 CORONA_LUA_SO ?= /tmp/corona-libs/jni/arm64-v8a/liblua.so
 
+# Standalone build (non-Solar2D, for local testing)
 mac:
 	@mkdir -p build && cd build && cmake .. && make -j4
 
-solar2d:
+# Solar2D Simulator plugin (mac-sim)
+mac-sim:
 	@mkdir -p build-solar2d && cd build-solar2d && cmake .. -DSOLAR2D_PLUGIN=ON && make -j4
+
+# Alias: solar2d builds mac-sim
+solar2d: mac-sim
+
+mac-install: mac-sim
+	@mkdir -p "$(HOME)/Library/Application Support/Corona/Simulator/Plugins"
+	@cp build-solar2d/plugin_yoga.dylib "$(HOME)/Library/Application Support/Corona/Simulator/Plugins/"
+	@echo "Installed plugin_yoga.dylib to Corona Simulator plugins"
 
 android:
 	@# Extract liblua.so from Corona.aar if not already done
@@ -29,10 +39,16 @@ android:
 		&& make -j4
 	@echo "Built build-android-arm64/libplugin.yoga.so"
 
-mac-install: solar2d
-	@mkdir -p "$(HOME)/Library/Application Support/Corona/Simulator/Plugins"
-	@cp build-solar2d/plugin_yoga.dylib "$(HOME)/Library/Application Support/Corona/Simulator/Plugins/"
-	@echo "Installed plugin_yoga.dylib to Corona Simulator plugins"
+# Package release tarballs (mac-sim + mac)
+package: mac-sim
+	@mkdir -p dist
+	@# mac-sim
+	cp build-solar2d/plugin_yoga.dylib dist/plugin_yoga-mac-sim.dylib
+	cd dist && tar czf plugin.yoga-mac-sim.tgz plugin_yoga-mac-sim.dylib
+	@# mac
+	cp build-solar2d/plugin_yoga.dylib dist/plugin_yoga-mac.dylib
+	cd dist && tar czf plugin.yoga-mac.tgz plugin_yoga-mac.dylib
+	@echo "Packaged: plugin.yoga-mac-sim.tgz plugin.yoga-mac.tgz"
 
 clean:
-	@rm -rf build build-solar2d build-android-arm64
+	@rm -rf build build-solar2d build-android-arm64 dist

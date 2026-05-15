@@ -206,10 +206,12 @@ settings = {
             publisherId = "com.labolado",
             supportedPlatforms = {
                 ["mac-sim"]    = { url = yoga_base .. "plugin.yoga-mac-sim.tgz" },
+                ["mac"]        = { url = yoga_base .. "plugin.yoga-mac.tgz" },
                 android        = { url = yoga_base .. "plugin.yoga-android.tgz" },
                 iphone         = { url = yoga_base .. "plugin.yoga-iphone.tgz" },
                 ["iphone-sim"] = { url = yoga_base .. "plugin.yoga-iphone-sim.tgz" },
                 ["win32-sim"]  = { url = yoga_base .. "plugin.yoga-win32-sim.tgz" },
+                ["win32"]      = { url = yoga_base .. "plugin.yoga-win32.tgz" },
             },
         },
     },
@@ -242,7 +244,9 @@ Yoga is compiled statically into the plugin binary — no external dependencies 
 | Platform | Package contents |
 |----------|-----------------|
 | mac-sim | `plugin_yoga.dylib` |
+| mac | `plugin_yoga.dylib` |
 | win32-sim | `plugin_yoga.dll` |
+| win32 | `plugin_yoga.dll` |
 | iphone | `libplugin_yoga.a` |
 | iphone-sim | `libplugin_yoga.a` (universal) |
 | android | `libplugin_yoga.so` (per ABI) |
